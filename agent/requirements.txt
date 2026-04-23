@@ -1,0 +1,18 @@
+# AgentCore Runtime SDK
+bedrock-agentcore
+
+# Agent framework with Memory + OTEL
+strands-agents[otel]>=1.13.0
+
+# Built-in tools (Code Interpreter)
+strands-agents-tools
+
+# MCP proxy for AWS IAM authentication (Gateway tools)
+mcp-proxy-for-aws
+
+# AWS SDK
+boto3
+botocore
+
+# Observability
+aws-opentelemetry-distro>=0.10.0

@@ -1,0 +1,131 @@
+import * as cdk from 'aws-cdk-lib';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as ses from 'aws-cdk-lib/aws-ses';
+import { Construct } from 'constructs';
+import { NagSuppressions } from 'cdk-nag';
+import { AppConfig } from './config';
+import { AnalyticsPipelineConstruct } from './constructs/analytics-pipeline-construct';
+import { GatewayConstruct } from './constructs/gateway-construct';
+import { RuntimeConstruct } from './constructs/runtime-construct';
+
+
+export interface SesAnalyticsStackProps extends cdk.StackProps {
+  config: AppConfig;
+}
+
+export class SesAnalyticsStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props: SesAnalyticsStackProps) {
+    super(scope, id, props);
+
+    const { config } = props;
+    const prefix = config.projectName;
+    const stage = config.stage;
+
+    // Shared boto3 Lambda layer
+    const boto3Layer = new lambda.LayerVersion(this, 'Boto3Layer', {
+      code: lambda.Code.fromAsset('lambda-layer'),
+      compatibleRuntimes: [lambda.Runtime.PYTHON_3_11],
+      description: 'Latest boto3 with AgentCore API support',
+    });
+
+    // ── SES Configuration Set ──────────────────────────────────────
+    // When createConfigurationSet is false, the customer is using an existing
+    // SES Configuration Set — we just reference the name without creating one.
+    if (config.createConfigurationSet) {
+      const configSet = new ses.CfnConfigurationSet(this, 'SesConfigSet', {
+        name: config.sesConfigurationSetName,
+      });
+      // Pipeline depends on the config set only when we create it
+      var configSetDependency: ses.CfnConfigurationSet | undefined = configSet;
+    }
+
+    // ── Analytics Pipeline (S3 + Firehose + Glue + Athena) ─────────
+    const analytics = new AnalyticsPipelineConstruct(this, 'Analytics', {
+      stage,
+      sesConfigurationSetName: config.sesConfigurationSetName,
+      firehoseBufferIntervalSeconds: config.firehoseBufferIntervalSeconds,
+      firehoseBufferSizeMBs: config.firehoseBufferSizeMBs,
+    });
+    if (configSetDependency) {
+      analytics.node.addDependency(configSetDependency);
+    }
+
+    // ── MCP Gateway (Athena query tools) ───────────────────────────
+    let gatewayUrl = '';
+    let gatewayArn = '';
+    if (config.enableGateway) {
+      const gateway = new GatewayConstruct(this, 'Gateway', {
+        stage,
+        prefix,
+        boto3Layer,
+        glueDatabaseName: analytics.glueDatabaseName,
+        athenaWorkGroupName: analytics.athenaWorkGroupName,
+        athenaResultsBucketName: analytics.athenaResultsBucket.bucketName,
+        rawDataBucketArn: analytics.rawDataBucket.bucketArn,
+      });
+      gatewayUrl = gateway.gatewayUrl;
+      gatewayArn = gateway.gatewayArn;
+    }
+
+    // ── AgentCore Runtime (optional — set enableRuntime: false for pipeline-only) ──
+    if (config.enableRuntime) {
+      new RuntimeConstruct(this, 'Runtime', {
+        config,
+        boto3Layer,
+        gatewayUrl,
+        gatewayArn,
+        analyticsResources: {
+          glueDatabaseName: analytics.glueDatabaseName,
+          athenaWorkGroupName: analytics.athenaWorkGroupName,
+          athenaResultsBucketName: analytics.athenaResultsBucket.bucketName,
+          rawDataBucketArn: analytics.rawDataBucket.bucketArn,
+          rawDataBucketName: analytics.rawDataBucket.bucketName,
+        },
+      });
+    }
+
+    // ── Stack Outputs ──────────────────────────────────────────────
+    new cdk.CfnOutput(this, 'SesConfigurationSetName', {
+      value: config.sesConfigurationSetName,
+      description: 'SES Configuration Set name',
+    });
+
+    new cdk.CfnOutput(this, 'GlueDatabaseName', {
+      value: analytics.glueDatabaseName,
+      description: 'Glue database for SES events',
+    });
+
+    new cdk.CfnOutput(this, 'AthenaWorkGroupName', {
+      value: analytics.athenaWorkGroupName,
+      description: 'Athena workgroup for queries',
+    });
+
+    new cdk.CfnOutput(this, 'AthenaResultsBucketName', {
+      value: analytics.athenaResultsBucket.bucketName,
+      description: 'S3 bucket for Athena query results',
+    });
+
+    // ── cdk-nag suppressions for CDK-internal constructs ────────────
+    // BucketDeployment is a CDK-managed custom resource; its IAM policies and runtime are not user-controlled
+    const cdkBucketDeployPrefix = `${this.stackName}/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C`;
+    NagSuppressions.addResourceSuppressionsByPath(this, [
+      `${cdkBucketDeployPrefix}/ServiceRole/Resource`,
+    ], [{ id: 'AwsSolutions-IAM4', reason: 'CDK BucketDeployment is a framework-managed custom resource; its IAM role and managed policies are not user-controlled.' }]);
+
+    NagSuppressions.addResourceSuppressionsByPath(this, [
+      `${cdkBucketDeployPrefix}/ServiceRole/DefaultPolicy/Resource`,
+    ], [{
+      id: 'AwsSolutions-IAM5',
+      reason: 'CDK BucketDeployment is a framework-managed custom resource; its S3 wildcard permissions (GetObject*, GetBucket*, List*, DeleteObject*, Abort*) are generated by CDK grants and required for bucket deployment operations.',
+    }], true);
+
+    NagSuppressions.addResourceSuppressionsByPath(this, [
+      `${cdkBucketDeployPrefix}/Resource`,
+    ], [{ id: 'AwsSolutions-L1', reason: 'CDK BucketDeployment is a framework-managed custom resource; its Lambda runtime version is controlled by the CDK framework.' }]);
+
+    // BucketNotificationsHandler is a CDK-managed construct for S3 event notifications
+    NagSuppressions.addResourceSuppressionsByPath(this, [
+      `${this.stackName}/BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Role/Resource`,
+    ], [{ id: 'AwsSolutions-IAM4', reason: 'CDK BucketNotificationsHandler is a framework-managed construct; its IAM role is not user-controlled.' }]);
+  }
+}

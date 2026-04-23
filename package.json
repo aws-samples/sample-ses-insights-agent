@@ -1,0 +1,25 @@
+{
+  "name": "ses-analytics-mcp",
+  "version": "1.0.0",
+  "description": "Amazon Simple Email Service (Amazon SES) Analytics Pipeline with AgentCore MCP Gateway for natural language querying",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk",
+    "deploy": "cdk deploy --all --require-approval never",
+    "destroy": "cdk destroy --all",
+    "synth": "cdk synth",
+    "diff": "cdk diff"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "aws-cdk": "^2.170.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.170.0",
+    "cdk-nag": "^2.37.55",
+    "constructs": "^10.0.0"
+  }
+}
