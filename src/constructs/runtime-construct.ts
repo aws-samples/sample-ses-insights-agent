@@ -290,7 +290,7 @@ export class RuntimeConstruct extends Construct {
           { type: 'HATE', inputStrength: 'HIGH', outputStrength: 'HIGH' },
           { type: 'INSULTS', inputStrength: 'HIGH', outputStrength: 'HIGH' },
           { type: 'MISCONDUCT', inputStrength: 'HIGH', outputStrength: 'HIGH' },
-          { type: 'PROMPT_ATTACK', inputStrength: 'HIGH', outputStrength: 'NONE' },
+          { type: 'PROMPT_ATTACK', inputStrength: 'LOW', outputStrength: 'NONE' },
         ],
       },
 
@@ -340,14 +340,29 @@ export class RuntimeConstruct extends Construct {
       actions: ['codebuild:StartBuild', 'codebuild:BatchGetBuilds'],
       resources: [buildProject.projectArn],
     }));
-    // AgentCore runtime management — scoped to runtime resources in this account
+    // AgentCore runtime lifecycle — includes implicit secondary actions
+    // (endpoint, workload identity) required by CreateAgentRuntime
     deployerFn.addToRolePolicy(new iam.PolicyStatement({
       actions: [
         'bedrock-agentcore:CreateAgentRuntime', 'bedrock-agentcore:UpdateAgentRuntime',
         'bedrock-agentcore:DeleteAgentRuntime', 'bedrock-agentcore:GetAgentRuntime',
         'bedrock-agentcore:ListAgentRuntimes',
+        'bedrock-agentcore:CreateAgentRuntimeEndpoint', 'bedrock-agentcore:UpdateAgentRuntimeEndpoint',
+        'bedrock-agentcore:DeleteAgentRuntimeEndpoint', 'bedrock-agentcore:GetAgentRuntimeEndpoint',
       ],
       resources: [`arn:aws:bedrock-agentcore:${region}:${account}:runtime/*`],
+    }));
+    // Workload identity — implicitly required by CreateAgentRuntime
+    deployerFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'bedrock-agentcore:CreateWorkloadIdentity',
+        'bedrock-agentcore:DeleteWorkloadIdentity',
+        'bedrock-agentcore:GetWorkloadIdentity',
+      ],
+      resources: [
+        `arn:aws:bedrock-agentcore:${region}:${account}:workload-identity-directory/default`,
+        `arn:aws:bedrock-agentcore:${region}:${account}:workload-identity-directory/default/*`,
+      ],
     }));
     // iam:CreateServiceLinkedRole — scoped to AgentCore service principal
     deployerFn.addToRolePolicy(new iam.PolicyStatement({

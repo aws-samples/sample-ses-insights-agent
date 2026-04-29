@@ -80,6 +80,17 @@ pip3 install -r requirements.txt
 python chat.py --region us-east-1
 ```
 
+> **Note:** On macOS with Homebrew Python, system-wide pip installs are blocked.
+> Use a virtual environment instead:
+>
+> ```bash
+> cd test-client
+> python3 -m venv .venv
+> source .venv/bin/activate
+> pip install -r requirements.txt
+> python chat.py --region us-east-1
+> ```
+
 ## Connecting Your Existing SES
 
 The pipeline captures events from a SES Configuration Set. By default, the stack

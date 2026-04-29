@@ -84,8 +84,6 @@ def handle_delete(event, props):
 
     return send_response(event, 'SUCCESS', {'Status': 'DELETED'})
 
-    return send_response(event, 'SUCCESS', {'Status': 'DELETED'})
-
 
 def create_runtime(props):
     region = props.get('Region', 'us-east-1')
@@ -180,8 +178,10 @@ def trigger_build(props):
 
 
 def send_response(event, status, data):
+    reason = data.get('Error', f'See CloudWatch logs for RequestId: {event["RequestId"]}')
     body = json.dumps({
         'Status': status,
+        'Reason': reason,
         'PhysicalResourceId': data.get('RuntimeArn', event.get('PhysicalResourceId', 'runtime')),
         'StackId': event['StackId'],
         'RequestId': event['RequestId'],
