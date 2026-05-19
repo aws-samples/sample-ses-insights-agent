@@ -287,6 +287,10 @@ This project follows the [AWS Shared Responsibility Model](https://aws.amazon.co
 | Dependency maintenance | Keep boto3 layer, agent container base image, and CDK version up to date; enable ECR image scanning |
 | Production hardening | Review [Security Guidelines by Service](#security-guidelines-by-service) before promoting to production |
 
+### Reporting a Security Issue
+
+If you discover a potential security issue in this project, please notify AWS/Amazon Security via our [vulnerability reporting page](http://aws.amazon.com/security/vulnerability-reporting/) rather than opening a public GitHub issue. See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for full details.
+
 ### Implemented Controls
 
 The stack deploys the following controls automatically. Below are the details and how to verify each one.
@@ -606,10 +610,6 @@ aws bedrock-agentcore-control list-memories --region us-east-1
 ## Code of Conduct
 
 This project has adopted the [Amazon Open Source Code of Conduct](https://aws.github.io/code-of-conduct). See [CODE_OF_CONDUCT](CODE_OF_CONDUCT.md) for more information.
-
-## Security
-
-See [CONTRIBUTING](CONTRIBUTING.md) for more information.
 
 ## License
 
