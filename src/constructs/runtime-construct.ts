@@ -364,11 +364,22 @@ export class RuntimeConstruct extends Construct {
         `arn:aws:bedrock-agentcore:${region}:${account}:workload-identity-directory/default/*`,
       ],
     }));
-    // iam:CreateServiceLinkedRole — scoped to AgentCore service principal
+    // iam:CreateServiceLinkedRole — scoped to AgentCore service principals.
+    // CreateAgentRuntime (post-2025-10-13) auto-creates the
+    // AWSServiceRoleForBedrockAgentCoreRuntimeIdentity SLR, whose principal is
+    // runtime-identity.bedrock-agentcore.amazonaws.com — not the bare service name.
     deployerFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['iam:CreateServiceLinkedRole'],
       resources: ['*'],
-      conditions: { StringEquals: { 'iam:AWSServiceName': 'bedrock-agentcore.amazonaws.com' } },
+      conditions: {
+        StringEquals: {
+          'iam:AWSServiceName': [
+            'bedrock-agentcore.amazonaws.com',
+            'runtime-identity.bedrock-agentcore.amazonaws.com',
+            'network.bedrock-agentcore.amazonaws.com',
+          ],
+        },
+      },
     }));
     // ecr:GetAuthorizationToken is a service-level action that requires Resource: '*'
     deployerFn.addToRolePolicy(new iam.PolicyStatement({
